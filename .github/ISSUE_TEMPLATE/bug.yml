@@ -1,6 +1,6 @@
 name: 버그 제보
 description: 잘못된 동작이나 오류를 제보합니다.
-title: "[버그] "
+title: "[Bug] "
 body:
   - type: markdown
     attributes:

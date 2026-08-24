@@ -1,6 +1,6 @@
 name: 작업
 description: 구현, 조치, 설계, 문서, 학습 할 일을 등록합니다.
-title: "[작업] "
+title: "[Task] "
 body:
   - type: markdown
     attributes:

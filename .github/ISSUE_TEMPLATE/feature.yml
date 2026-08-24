@@ -1,6 +1,6 @@
 name: 기능 제안
 description: 새로운 기능이나 개선을 제안합니다.
-title: "[기능] "
+title: "[Feature] "
 body:
   - type: markdown
     attributes:
