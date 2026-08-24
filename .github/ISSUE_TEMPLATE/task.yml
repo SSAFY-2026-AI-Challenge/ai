@@ -1,10 +1,11 @@
 name: 작업
 description: 구현, 조치, 설계, 문서, 학습 할 일을 등록합니다.
 title: "[Task] "
+type: Task
 body:
   - type: markdown
     attributes:
-      value: 기능이 정해진 뒤 설계(··· DB 구조, AI 아키텍처)···구현···문서 작업은 이 템플릿으로 등록합니다.
+      value: "설계, 구현, 문서 작업은 이 템플릿으로 등록합니다."
   - type: textarea
     id: goal
     attributes:
@@ -22,9 +23,9 @@ body:
       label: 작업 항목
       description: 체크리스트로 적어 주세요.
       value: |
-        - [ ]
-        - [ ]
-        - [ ]
+        - [ ] 항목
+        - [ ] 항목
+        - [ ] 항목
     validations:
       required: true
   - type: textarea

@@ -1,10 +1,11 @@
-name: 버그 제보
+name: 버그
 description: 잘못된 동작이나 오류를 제보합니다.
 title: "[Bug] "
+type: Bug
 body:
   - type: markdown
     attributes:
-      value: 재현에 필요한 정보를 구체적으로 적어 주세요.
+      value: "재현에 필요한 정보를 구체적으로 적어 주세요."
   - type: textarea
     id: summary
     attributes:
@@ -39,7 +40,7 @@ body:
     id: environment
     attributes:
       label: 환경
-      description: OS, 러타임, 모델 버전 등
+      description: OS, 런타임, 모델 버전 등
       placeholder: Windows 11 / Python 3.11 / CUDA 12.1
   - type: textarea
     id: extra
