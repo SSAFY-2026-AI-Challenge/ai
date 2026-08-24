@@ -1,0 +1,48 @@
+name: 버그 제보
+description: 잘못된 동작이나 오류를 제보합니다.
+title: "[버그] "
+body:
+  - type: markdown
+    attributes:
+      value: 재현에 필요한 정보를 구체적으로 적어 주세요.
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: 무엇이 기대와 달랐는지 한두 문장으로 적어 주세요.
+      placeholder: 예) 로그인 버튼 클릭 시 500 오류가 발생합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 절차
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 환경
+      description: OS, 러타임, 모델 버전 등
+      placeholder: Windows 11 / Python 3.11 / CUDA 12.1
+  - type: textarea
+    id: extra
+    attributes:
+      label: 로그 / 스크린샷
+      description: 관련 로그, 스택 트레이스, 이미지를 붙여 주세요.
