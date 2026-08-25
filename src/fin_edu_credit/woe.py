@@ -7,7 +7,7 @@
 
 WoE 가 클수록 안전한 구간이다. 이렇게 바꾸면
 
-* 비선형 관계를 구간으로 자연스럽게 흙수하고,
+* 비선형 관계를 구간으로 자연스럽게 흡수하고,
 * 이상치의 영향이 사라지며,
 * 무엇보다 **구간을 도메인 방향(출석률이 높을수록 안전)에 맞춰 단조롭게** 만들 수 있다.
 
@@ -57,7 +57,7 @@ class Bin:
 @dataclass
 class FeatureBinning:
     name: str
-    edges: np.ndarray               # 길이 n_bins+1, 양끈은 ±inf
+    edges: np.ndarray               # 길이 n_bins+1, 양끝은 ±inf
     bins: list[Bin] = field(default_factory=list)
     iv: float = 0.0
 

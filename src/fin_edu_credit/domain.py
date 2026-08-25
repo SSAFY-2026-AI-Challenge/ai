@@ -9,7 +9,7 @@ from __future__ import annotations
 # --- 계좌 종류 --------------------------------------------------------------
 ACCOUNT_CHECKING = "CHECKING"   # 입출금 통장
 ACCOUNT_SAVINGS = "SAVINGS"     # 적금 통장
-ACCOUNT_LOAN = "LOAN"           # 대출 계좌(잔액이 음수 = 남은 뺚)
+ACCOUNT_LOAN = "LOAN"           # 대출 계좌(잔액이 음수 = 남은 빚)
 
 # --- 수입 -------------------------------------------------------------------
 INCOME_SALARY = "주급 급여"
@@ -21,7 +21,7 @@ INCOME_LOAN_DISBURSE = "대출금 입금"
 INCOME_SAVINGS_MATURITY = "적금 만기 수령"
 INCOME_SAVINGS_WITHDRAW = "적금 중도 인출"
 
-# 계좌 사이를 옳겨 다닌 돈. 벌어들인 수입이 아니므로 소득 집계에서 제외한다.
+# 계좌 사이를 옮겨 다닌 돈. 벌어들인 수입이 아니므로 소득 집계에서 제외한다.
 TRANSFER_IN_DESCRIPTIONS = frozenset(
     {INCOME_LOAN_DISBURSE, INCOME_SAVINGS_MATURITY, INCOME_SAVINGS_WITHDRAW}
 )
