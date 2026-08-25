@@ -12,9 +12,22 @@ fin_edu 스키마의 member / account / transaction / payroll 을 채운다.
 이 성향은 DB 에 저장하지 않는다. 모델은 성향을 볼 수 없고, 성향이 만들어 낸
 '행동의 흔적'(거래 내역, 잔액, 출석·숙제 지표)만 보고 연체를 예측해야 한다.
 
-주 단위로 급여 지급 → 세금 납부 → 적금 납입 → 대출 상환 → 재량 소비 순서로
-현금 흐름을 굴리며, 잔액이 부족해 의무 지출을 못 하면 연체료가 붙는다.
-이 연체료 거래가 곧 신용평가의 정답(bad) 라벨이 된다.
+급여는 한 달에 한 번 준다. 한 달을 4주로 두고 아래 리듬을 반복한다.
+
+    1주차  월급 지급, 적금 자동이체, 예금 이자
+    2주차  세금 납부일 (소득세 / 건강 보험료 / 자리 임대료 / 학급 기금)
+    3주차  대출 상환일
+    4주차  의무 지출 없음
+
+재량 소비는 매주 일어난다. 월급을 받자마자 다 써 버리면 2주차 세금과 3주차
+상환에서 돈이 모자라고, 그때 연체료가 붙는다. 이 연체료 거래가 곧 신용평가의
+정답(bad) 라벨이 된다. '목돈이 들어왔을 때 나눠 쓰는 법'이 이 모의 경제의
+핵심 학습 지점이고, 모델이 잡아내야 하는 신호이기도 하다.
+
+한 달을 달력 대신 4주로 고정한 이유가 있다. 달력 월로 급여를 주면 관측
+윈도우(8주)에 급여일이 2번 들어갈 때와 3번 들어갈 때가 생겨서, 학생의 행동과
+무관하게 소득 피처가 50%씩 출렁인다. 4주 주기로 두면 어떤 8주 구간에도 급여일이
+정확히 2번 들어가므로 그런 잡음이 사라진다.
 """
 
 from __future__ import annotations
@@ -29,28 +42,47 @@ import pandas as pd
 from . import domain as D
 from .config import SimulationConfig
 
+# --- 급여 주기 ---------------------------------------------------------------
+# 납부일을 월 후반에 두는 것이 핵심이다. 월급 바로 다음 주에 걷으면 통장이 아직
+# 두둑해서 아무도 밀리지 않고, 그러면 대출을 쓴 학생만 위험해 보이는 모델이 된다.
+WEEKS_PER_MONTH = 4               # 한 달 = 4주
+PAYDAY_WEEK = 0                   # 월 주기 안에서 월급을 주는 주
+TAX_WEEK = 2                      # 세금 납부 주
+LOAN_WEEK = 3                     # 대출 상환 주
+
 # --- 시뮬레이션 튜닝 상수 ----------------------------------------------------
-OPENING_GIFT_MULTIPLIER = 1.0     # 계좌 개설 축하금 = 주급 * 배수
+OPENING_GIFT_RATIO = 0.25         # 계좌 개설 축하금 = 월급 * 비율
 SAVINGS_JOIN_BASE = 0.30          # 적금 가입 확률 기본값
 SAVINGS_JOIN_THETA = 0.45         # 성실할수록 적금 가입
 LOAN_JOIN_BASE = 0.62             # 대출 이용 확률 기본값
 LOAN_JOIN_THETA = -0.22
 LOAN_JOIN_IMPULSE = 0.18
-REPAY_BASE = 0.90                 # 상환 의지 기본값(나머지는 잔액 부족으로 결정)
-REPAY_THETA = 0.10
-REPAY_IMPULSE = -0.16
-TAX_PAY_BASE = 0.985              # 잔액이 있어도 세금을 깜빡할 수 있다
-TAX_PAY_THETA = 0.012
+# 납부 성실도. 돈이 있어도 깜빡하는 정도이며, 성실한 학생일수록 덜 깜빡한다.
+# 이 부분은 잔액만 봐서는 알 수 없고 출석·숙제 같은 생활 습관에만 드러난다.
+REPAY_BASE = 0.90                 # 대출 상환일을 챙길 확률 기본값
+REPAY_THETA = 0.14
+REPAY_IMPULSE = -0.08
+TAX_PAY_BASE = 0.93               # 세금 납부일을 챙길 확률 기본값
+TAX_PAY_THETA = 0.12
+# 달마다 흔들리는 컨디션. 관측되지 않으므로 모델이 맞힐 수 없는 부분이다.
+MONTHLY_DILIGENCE_SHOCK = 0.13
 LATE_FEE_RATE = 0.10              # 연체료 = 미납액 * 비율
-ABSENCE_TO_NO_PAY = 0.6           # 결석한 주에 급여가 나오지 않을 확률 계수
+ABSENCE_DEDUCTION = 0.8           # 결석한 주만큼 월급에서 깎이는 비율
 TRANSFER_IN_RATE = 0.12           # 학기 중 전학 와서 늦게 계좌를 만드는 학생 비율
 
-# 주간 재량 소비 = 남은 잔액 * 소비성향. 소비성향이 높을수록 버퍼가 마르고,
-# 다음 주 세금·대출 상환에서 유동성 부족으로 연체가 발생한다.
+# 주간 재량 소비 = 남은 잔액 * 소비성향. 월급은 한 번에 들어오는데 소비는 매주
+# 일어나므로, 소비성향이 높으면 세금 납부일 전에 이미 통장이 말라 버린다.
 SPEND_RATIO_BASE = 0.20
-SPEND_RATIO_IMPULSE = 0.52
-SPEND_RATIO_THETA = -0.13
-SPEND_RATIO_NOISE = 0.07
+SPEND_RATIO_IMPULSE = 0.50
+SPEND_RATIO_THETA = -0.11
+SPEND_RATIO_NOISE = 0.17
+
+# 월급날 과소비. 목돈이 들어온 주에 충동성이 높은 학생은 씀씀이가 커지고,
+# 그 결과 다음 주 세금 납부일에 돈이 모자란다.
+PAYDAY_SPLURGE = 0.45
+
+# 매주 이 확률로 예상 못 한 지출이 생긴다(준비물, 친구 선물 등).
+UNEXPECTED_EXPENSE_PROB = 0.12
 
 _SURNAMES = (
     "김", "이", "박", "최", "정", "강", "조", "윤", "장", "임",
@@ -177,7 +209,7 @@ def _simulate_student_cashflow(
             }
         )
 
-    balance = _round_to(salary * OPENING_GIFT_MULTIPLIER, 10)
+    balance = _round_to(salary * OPENING_GIFT_RATIO, 10)
     add(checking_id, balance, D.INCOME_OPENING, open_at)
 
     def cover_shortfall(needed: int, when: datetime) -> bool:
@@ -209,127 +241,158 @@ def _simulate_student_cashflow(
     savings_rate = float(rng.uniform(0.10, 0.30))
     savings_opened = False
 
-    # 대출 이용 여부
+    # 대출 이용 여부. 대출 실행과 상환은 모두 '상환 주'에 일어난다.
     loan_prob = LOAN_JOIN_BASE + LOAN_JOIN_THETA * theta + LOAN_JOIN_IMPULSE * impulse
     has_loan = rng.random() < float(np.clip(loan_prob, 0.05, 0.95))
     loan_id = f"LON-{login_id}"
-    loan_week = int(rng.integers(join_week + 2, max(join_week + 3, len(weeks) - 10))) if has_loan else -1
+    loan_day_weeks = [
+        i for i in range(join_week + 1, len(weeks) - WEEKS_PER_MONTH)
+        if i % WEEKS_PER_MONTH == LOAN_WEEK
+    ]
+    loan_start_week = int(rng.choice(loan_day_weeks)) if has_loan and loan_day_weeks else -1
     loan_outstanding = 0
     installment = 0
     loan_opened = False
-    loan_due_weeks = 0
 
     repay_will = float(
-        np.clip(REPAY_BASE + REPAY_THETA * theta + REPAY_IMPULSE * impulse, 0.12, 0.98)
+        np.clip(REPAY_BASE + REPAY_THETA * theta + REPAY_IMPULSE * impulse, 0.55, 0.99)
     )
-    tax_will = float(np.clip(TAX_PAY_BASE + TAX_PAY_THETA * theta, 0.5, 0.995))
+    tax_will = float(np.clip(TAX_PAY_BASE + TAX_PAY_THETA * theta, 0.6, 0.995))
 
     attendance = float(member["cs_attendance"])
+    # 그 달의 사정. 거래 내역 어디에도 남지 않는 요인이라 모델은 알 수 없다.
+    # 현실의 신용평가가 완벽할 수 없는 이유를 데이터에 그대로 넣어 둔 것이다.
+    month_shock = 0.0
 
     for w, monday in enumerate(weeks):
         if w < join_week:
             continue
         day = datetime.combine(monday, datetime.min.time())
+        phase = w % WEEKS_PER_MONTH
 
-        # 1) 급여 -- 결석한 주에는 직업 활동을 못 해 급여가 나오지 않는다 --------
-        absent = rng.random() < (1 - attendance) * ABSENCE_TO_NO_PAY
-        if not absent:
-            bonus_shock = rng.normal(0, 0.05)
-            pay = _round_to(salary * (1 + bonus_shock), 10)
-            add(checking_id, pay, D.INCOME_SALARY, day.replace(hour=9))
-            payroll_keys.append(
-                {"login_id": login_id, "account_id": checking_id, "occured_at": day.replace(hour=9)}
+        # 1) 월급날 -- 급여, 적금 자동이체, 예금 이자 ---------------------------
+        if phase == PAYDAY_WEEK:
+            month_shock = float(rng.normal(0, MONTHLY_DILIGENCE_SHOCK))
+            # 결석한 주만큼 급여에서 깎인다. 출석이 곧 소득으로 이어지는 장치다.
+            absent_weeks = sum(
+                1 for _ in range(WEEKS_PER_MONTH) if rng.random() > attendance
             )
-            balance += pay
+            deduction = absent_weeks / WEEKS_PER_MONTH * ABSENCE_DEDUCTION
+            pay = _round_to(salary * (1 - deduction) * (1 + rng.normal(0, 0.02)), 10)
+            if absent_weeks < WEEKS_PER_MONTH:
+                add(checking_id, pay, D.INCOME_SALARY, day.replace(hour=9))
+                payroll_keys.append(
+                    {"login_id": login_id, "account_id": checking_id, "occured_at": day.replace(hour=9)}
+                )
+                balance += pay
 
-        if rng.random() < 0.10 + 0.15 * theta:
-            bonus = _round_to(salary * rng.uniform(0.10, 0.35), 10)
-            add(checking_id, bonus, D.INCOME_BONUS, day.replace(hour=13))
-            balance += bonus
+            if rng.random() < 0.25 + 0.35 * theta:
+                bonus = _round_to(salary * rng.uniform(0.03, 0.12), 10)
+                add(checking_id, bonus, D.INCOME_BONUS, day.replace(hour=13))
+                balance += bonus
+
+            if has_savings and w >= savings_open_week:
+                if not savings_opened:
+                    accounts.append(
+                        {
+                            "account_id": savings_id,
+                            "login_id": login_id,
+                            "account_type": D.ACCOUNT_SAVINGS,
+                            "created_at": day.replace(hour=9, minute=30),
+                        }
+                    )
+                    savings_opened = True
+                deposit = _round_to(salary * savings_rate, 10)
+                keeps_plan = rng.random() < 0.55 + 0.40 * theta
+                # 이번 달 세금과 대출 상환분은 남겨 두고 남는 돈만 적금에 넣는다.
+                reserve = tax_total + (installment if loan_outstanding > 0 else 0)
+                if keeps_plan and balance - deposit >= reserve:
+                    when = day.replace(hour=9, minute=40)
+                    add(checking_id, -deposit, D.EXPENSE_SAVINGS_DEPOSIT, when)
+                    add(savings_id, deposit, D.EXPENSE_SAVINGS_DEPOSIT, when)
+                    balance -= deposit
+                    savings_balance += deposit
+                if savings_balance > 0:
+                    interest = _round_to(savings_balance * 0.01, 10)
+                    add(savings_id, interest, D.INCOME_INTEREST, day.replace(hour=16))
+                    savings_balance += interest
+
+        # 2) 세금 납부일 -------------------------------------------------------
+        # 돈이 있어도 납부일을 깜빡할 수 있다. 이 '예측 불가능한 부분'이 있어야
+        # 모델이 유동성만 보고 정답을 맞히는 시시한 문제가 되지 않는다.
+        if phase == TAX_WEEK:
+            if rng.random() >= tax_will + month_shock:
+                when = day.replace(hour=9, minute=20)
+                fee = _round_to(tax_total * LATE_FEE_RATE, 10)
+                add(checking_id, -fee, D.LATE_FEE_TAX, when)
+                balance -= fee
+            else:
+                for t_idx, (tax_name, tax_amount) in enumerate(taxes):
+                    when = day.replace(hour=9, minute=20 + t_idx)
+                    if cover_shortfall(tax_amount, when):
+                        add(checking_id, -tax_amount, f"{D.EXPENSE_TAX_PREFIX}{tax_name}", when)
+                        balance -= tax_amount
+                    else:
+                        fee = _round_to(tax_amount * LATE_FEE_RATE, 10)
+                        add(checking_id, -fee, D.LATE_FEE_TAX, when)
+                        balance -= fee
+
+        # 3) 대출 상환일 -------------------------------------------------------
+        if phase == LOAN_WEEK:
+            if has_loan and w == loan_start_week:
+                principal = _round_to(salary * rng.uniform(0.8, 2.2), 50)
+                term_months = int(rng.integers(2, 7))
+                installment = _round_to(principal * 1.05 / term_months, 10)
+                loan_outstanding = principal
+                accounts.append(
+                    {
+                        "account_id": loan_id,
+                        "login_id": login_id,
+                        "account_type": D.ACCOUNT_LOAN,
+                        "created_at": day.replace(hour=10),
+                    }
+                )
+                loan_opened = True
+                add(loan_id, -principal, D.LOAN_DISBURSE, day.replace(hour=10))
+                add(checking_id, principal, D.INCOME_LOAN_DISBURSE, day.replace(hour=10, minute=1))
+                balance += principal
+            elif loan_opened and loan_outstanding > 0:
+                due = min(installment, loan_outstanding)
+                when = day.replace(hour=10, minute=30)
+                willing = rng.random() < repay_will + month_shock
+                if willing and cover_shortfall(due, when):
+                    add(checking_id, -due, D.EXPENSE_LOAN_REPAY, when)
+                    add(loan_id, due, D.EXPENSE_LOAN_REPAY, when)
+                    balance -= due
+                    loan_outstanding -= due
+                else:
+                    fee = _round_to(due * LATE_FEE_RATE, 10)
+                    add(checking_id, -fee, D.LATE_FEE_LOAN, when)
+                    balance -= fee
+
+        # 4) 알뜰장터 판매 -----------------------------------------------------
         if rng.random() < 0.08:
-            sale = _round_to(salary * rng.uniform(0.15, 0.5), 10)
+            sale = _round_to(salary * rng.uniform(0.03, 0.10), 10)
             add(checking_id, sale, D.INCOME_MARKET, day.replace(hour=15) + timedelta(days=3))
             balance += sale
 
-        # 2) 세금 -----------------------------------------------------------
-        for t_idx, (tax_name, tax_amount) in enumerate(taxes):
-            when = day.replace(hour=9, minute=20 + t_idx)
-            funded = cover_shortfall(tax_amount, when)
-            if funded and rng.random() < tax_will:
-                add(checking_id, -tax_amount, f"{D.EXPENSE_TAX_PREFIX}{tax_name}", when)
-                balance -= tax_amount
-            else:
-                fee = _round_to(tax_amount * LATE_FEE_RATE, 10)
-                add(checking_id, -fee, D.LATE_FEE_TAX, when)
-                balance -= fee
+        # 5) 예상 못 한 지출 ----------------------------------------------------
+        # 달마다 통장 사정이 달라지게 만드는 장치. 이게 없으면 씀씀이만으로 연체가
+        # 결정돼 '한 번 연체한 학생은 반드시 또 연체한다'는 뻔한 데이터가 된다.
+        if rng.random() < UNEXPECTED_EXPENSE_PROB:
+            shock = _round_to(salary * rng.uniform(0.05, 0.22), 10)
+            shock = min(shock, max(10, balance))
+            add(checking_id, -shock, D.EXPENSE_UNEXPECTED, day.replace(hour=12) + timedelta(days=2))
+            balance -= shock
 
-        # 3) 적금 -----------------------------------------------------------
-        if has_savings and w >= savings_open_week:
-            if not savings_opened:
-                accounts.append(
-                    {
-                        "account_id": savings_id,
-                        "login_id": login_id,
-                        "account_type": D.ACCOUNT_SAVINGS,
-                        "created_at": day.replace(hour=9, minute=30),
-                    }
-                )
-                savings_opened = True
-            deposit = _round_to(salary * savings_rate, 10)
-            keeps_plan = rng.random() < 0.55 + 0.40 * theta
-            # 다음 주 세금·대출 상환분은 남겨 두고 남는 돈만 적금에 넣는다.
-            reserve = tax_total + (installment if loan_outstanding > 0 else 0)
-            if keeps_plan and balance - deposit >= reserve * 0.5:
-                when = day.replace(hour=9, minute=40)
-                add(checking_id, -deposit, D.EXPENSE_SAVINGS_DEPOSIT, when)
-                add(savings_id, deposit, D.EXPENSE_SAVINGS_DEPOSIT, when)
-                balance -= deposit
-                savings_balance += deposit
-            if w % 4 == 3 and savings_balance > 0:
-                interest = _round_to(savings_balance * 0.01, 10)
-                add(savings_id, interest, D.INCOME_INTEREST, day.replace(hour=16))
-                savings_balance += interest
-
-        # 4) 대출 -----------------------------------------------------------
-        if has_loan and w == loan_week:
-            principal = _round_to(salary * rng.uniform(4, 10), 50)
-            loan_due_weeks = int(rng.integers(8, 17))
-            installment = _round_to(principal * 1.05 / loan_due_weeks, 10)
-            loan_outstanding = principal
-            accounts.append(
-                {
-                    "account_id": loan_id,
-                    "login_id": login_id,
-                    "account_type": D.ACCOUNT_LOAN,
-                    "created_at": day.replace(hour=10),
-                }
-            )
-            loan_opened = True
-            add(loan_id, -principal, D.LOAN_DISBURSE, day.replace(hour=10))
-            add(checking_id, principal, D.INCOME_LOAN_DISBURSE, day.replace(hour=10, minute=1))
-            balance += principal
-        elif loan_opened and loan_outstanding > 0 and w > loan_week:
-            due = min(installment, loan_outstanding)
-            when = day.replace(hour=10, minute=30)
-            willing = rng.random() < repay_will
-            if willing and cover_shortfall(due, when):
-                add(checking_id, -due, D.EXPENSE_LOAN_REPAY, when)
-                add(loan_id, due, D.EXPENSE_LOAN_REPAY, when)
-                balance -= due
-                loan_outstanding -= due
-            else:
-                fee = _round_to(due * LATE_FEE_RATE, 10)
-                add(checking_id, -fee, D.LATE_FEE_LOAN, when)
-                balance -= fee
-
-        # 5) 학급 규칙 위반 벌금 ---------------------------------------------
+        # 6) 학급 규칙 위반 벌금 ------------------------------------------------
         if rng.random() < 0.05 + 0.22 * (1 - theta):
-            fine = _round_to(salary * rng.uniform(0.05, 0.15), 10)
+            fine = _round_to(salary * rng.uniform(0.012, 0.04), 10)
             fine = min(fine, max(10, balance))
             add(checking_id, -fine, D.EXPENSE_FINE, day.replace(hour=14) + timedelta(days=1))
             balance -= fine
 
-        # 6) 재량 소비 -------------------------------------------------------
+        # 7) 재량 소비 -- 월급은 한 번에 들어오지만 소비는 매주 일어난다 ---------
         spend_ratio = float(
             np.clip(
                 SPEND_RATIO_BASE
@@ -340,8 +403,10 @@ def _simulate_student_cashflow(
                 0.92,
             )
         )
+        if phase == PAYDAY_WEEK:
+            spend_ratio = min(0.95, spend_ratio * (1 + PAYDAY_SPLURGE * impulse))
         budget = max(0, balance) * spend_ratio
-        n_spend = int(rng.poisson(1.6 + 2.6 * impulse)) + 1
+        n_spend = int(rng.poisson(2.0 + 3.2 * impulse)) + 1
         # 충동성이 높은 학생은 간식·뽑기·보드게임 쪽으로 소비가 쏠린다.
         weights = np.array(
             [
@@ -356,15 +421,16 @@ def _simulate_student_cashflow(
             if balance <= 10:
                 break
             pick = int(rng.choice(len(D.DISCRETIONARY_MENU), p=weights))
-            desc, _, (lo, hi) = D.DISCRETIONARY_MENU[pick]
+            desc, _, max_share = D.DISCRETIONARY_MENU[pick]
             amount = _round_to(budget * share, 10)
-            amount = int(np.clip(amount, 10, max(10, min(balance, hi * 6))))
+            cap = max(10, min(balance, int(salary * max_share)))
+            amount = int(np.clip(amount, 10, cap))
             when = day.replace(hour=int(rng.integers(9, 17)), minute=int(rng.integers(0, 59)))
             when += timedelta(days=int(rng.integers(0, 5)))
             add(checking_id, -amount, desc, when)
             balance -= amount
 
-        # 7) 적금 만기 -------------------------------------------------------
+        # 8) 적금 만기 ---------------------------------------------------------
         if savings_opened and savings_balance > 0 and w == savings_open_week + 24:
             when = day.replace(hour=11)
             add(savings_id, -savings_balance, D.INCOME_SAVINGS_MATURITY, when)
@@ -388,18 +454,20 @@ def _simulate_teacher(rng: np.random.Generator, member: dict, weeks: list[date])
         }
     ]
     txns = []
-    for monday in weeks:
+    for w, monday in enumerate(weeks):
+        if w % WEEKS_PER_MONTH != PAYDAY_WEEK:
+            continue
         day = datetime.combine(monday, datetime.min.time()).replace(hour=8, minute=30)
         txns.append(
             {
                 "account_id": account_id,
                 "login_id": login_id,
-                "amount": 5000,
+                "amount": 20000,
                 "description": "학급 운영비 지원",
                 "occured_at": day,
             }
         )
-        spend = _round_to(rng.uniform(3800, 5200), 10)
+        spend = _round_to(rng.uniform(15000, 21000), 10)
         txns.append(
             {
                 "account_id": account_id,
