@@ -33,8 +33,8 @@ class FeatureSpec:
 
 FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     # --- 비금융(생활 습관) ---
-    FeatureSpec("cs_attendance", "출석률", True, "지각·결석을 줄이면 신용이 올라가요."),
-    FeatureSpec("cs_homework", "숙제 완료율", True, "밀린 숙제를 끝내면 신용이 올라가요."),
+    FeatureSpec("cs_attendance", "출석률", True, "지각·결석을 줄이면 신용이 옮c라가요."),
+    FeatureSpec("cs_homework", "숙제 완료율", True, "밀린 숙제를 끝내면 신용이 옮c라가요."),
     FeatureSpec("cs_overdue", "도서 연체 횟수", False, "빌린 책을 기한 안에 반납해 보세요."),
     # --- 상환/연체 이력 ---
     FeatureSpec("late_events_8w", "최근 연체 횟수", False, "약속한 납부일을 지키는 것이 가장 중요해요."),
@@ -57,16 +57,16 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec("balance_total", "총 자산", True, "자산을 꾸준히 늘려 보세요."),
     FeatureSpec("has_savings", "적금 가입 여부", True, "적금 통장을 만들어 보세요."),
     # --- 부채/유동성 ---
-    FeatureSpec("loan_outstanding", "남은 대출 잔액", False, "빚을 조금씩 줄여 나가 보세요."),
-    FeatureSpec("debt_to_income", "월 소득 대비 부채", False, "소득에 비해 빚이 많아요. 새 대출은 미뤄 보세요."),
+    FeatureSpec("loan_outstanding", "남은 대출 잔액", False, "빗을 조금씩 줄여 나가 보세요."),
+    FeatureSpec("debt_to_income", "월 소득 대비 부채", False, "소득에 비해 빗이 많아요. 새 대출은 미뤄 보세요."),
     FeatureSpec("has_loan", "대출 이용 여부", False, "꼭 필요한 대출인지 다시 생각해 보세요."),
     FeatureSpec("liquidity_weeks", "지출 대비 여유 자금(주)", True, "1~2주치 생활비는 남겨 두세요."),
     FeatureSpec("min_balance_8w", "최근 8주 최저 잔액", True, "잔액이 0에 가까워지지 않게 관리해 보세요."),
-    FeatureSpec("low_balance_ratio", "잔액 부족 상태 비율", False, "잔액이 자주 바닥나요. 지출 속도를 늦춰 보세요."),
+    FeatureSpec("low_balance_ratio", "잔액 부족 상태 비율", False, "잔액이 자주 바닥나요. 지출 속도를 늪춰 보세요."),
     FeatureSpec("balance_volatility", "잔액 변동성", False, "쓰는 돈의 기복을 줄이면 관리가 쉬워져요."),
     # --- 소비 습관 ---
     FeatureSpec("discretionary_ratio", "충동 소비 비중", False, "간식·뽑기 지출을 절반으로 줄여 보세요."),
-    FeatureSpec("account_age_days", "계좌 개설 경과일", True, "통장을 오래 쓸수록 신용 기록이 두터워져요."),
+    FeatureSpec("account_age_days", "계좌 개설 경과일", True, "통장을 오래 쓤수록 신용 기록이 두터워져요."),
 )
 
 FEATURE_NAMES: tuple[str, ...] = tuple(spec.name for spec in FEATURE_SPECS)
@@ -211,17 +211,19 @@ def build_features(
     f["income_8w"] = agg(obs_chk, "income_amount")
     f["expense_8w"] = agg(obs_chk, "expense_amount")
     f["net_cashflow_8w"] = f["income_8w"] - f["expense_8w"]
-    # 저축과 대출 상환은 '쓴 돈'이 아니라 '옮긴 돈'이므로 소비에서 뺀다.
+    # 저축과 대출 상환은 '쓠 돈'이 아니라 '옮긴 돈'이므로 소비에서 빼다.
     consumption = (
         f["expense_8w"] - agg(obs_chk, "savings_deposit_amount") - agg(obs_chk, "loan_repay_amount")
     ).clip(lower=0)
     f["consumption_income_ratio"] = _safe_ratio(consumption, f["income_8w"], fill=1.5).clip(0, 3)
     # 분모를 전체 지출로 잡으면 대출 상환액이 많은 학생일수록 비중이 낮게 나와
-    # '충동 소비가 적은 학생'처럼 보인다. 순수 소비만 분모로 쓴다.
+    # '충동 소비가 적은 학생'처럼 보인다. 순수 소비만 분모로 쓠다.
     f["discretionary_ratio"] = _safe_ratio(
         agg(obs_chk, "discretionary_amount"), consumption
     ).clip(0, 1)
-    f["income_stability"] = (agg(obs_chk, "is_salary") / weeks).clip(0, 1.5)
+    # 급여는 한 달(4주)에 한 번 들어오므로, 기대 지급 횟수 대비 실제 수령 횟수로 본다.
+    expected_paydays = max(1.0, weeks / 4)
+    f["income_stability"] = (agg(obs_chk, "is_salary") / expected_paydays).clip(0, 1.5)
 
     # --- 연체/상환 이력 ---
     f["late_events_8w"] = agg(obs_chk, "is_late")
@@ -294,8 +296,8 @@ def build_features(
         std_bal = grouped.std().reindex(idx).fillna(0.0)
         f["balance_volatility"] = _safe_ratio(std_bal, mean_bal.abs()).clip(0, 5)
 
-        # '잔액 부족' 기준: 주급 1주치도 남아 있지 않은 상태
-        threshold = members["salary"].reindex(idx).astype(float)
+        # '잔액 부족' 기준: 월급의 1주치(=1/4)도 남아 있지 않은 상태
+        threshold = members["salary"].reindex(idx).astype(float) / 4
         low = obs_chk.assign(
             below=obs_chk["run_balance"].to_numpy()
             < obs_chk["member_id"].map(threshold).fillna(0).to_numpy()

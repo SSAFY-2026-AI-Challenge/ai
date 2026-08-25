@@ -9,12 +9,12 @@ from __future__ import annotations
 # --- 계좌 종류 --------------------------------------------------------------
 ACCOUNT_CHECKING = "CHECKING"   # 입출금 통장
 ACCOUNT_SAVINGS = "SAVINGS"     # 적금 통장
-ACCOUNT_LOAN = "LOAN"           # 대출 계좌(잔액이 음수 = 남은 빚)
+ACCOUNT_LOAN = "LOAN"           # 대출 계좌(잔액이 음수 = 남은 빗)
 
 # --- 수입 -------------------------------------------------------------------
-INCOME_SALARY = "주급 급여"
+INCOME_SALARY = "월급"
 INCOME_BONUS = "칭찬 보너스"
-INCOME_MARKET = "알뜰장터 판매"
+INCOME_MARKET = "알뜨장터 판매"
 INCOME_INTEREST = "예금 이자"
 INCOME_OPENING = "계좌 개설 축하금"
 INCOME_LOAN_DISBURSE = "대출금 입금"
@@ -35,6 +35,7 @@ EXPENSE_GACHA = "뽑기 이용료"
 EXPENSE_DONATION = "기부"
 EXPENSE_SEAT_RENT = "자리 임대료"
 EXPENSE_FINE = "벌금 - 학급 규칙 위반"
+EXPENSE_UNEXPECTED = "예상 못 한 지출"
 
 # --- 의무 지출 --------------------------------------------------------------
 EXPENSE_TAX_PREFIX = "세금 납부 - "
@@ -54,33 +55,35 @@ DISCRETIONARY_DESCRIPTIONS = frozenset(
     {EXPENSE_SNACK, EXPENSE_BOARDGAME, EXPENSE_GACHA}
 )
 
-# 재량 지출 후보와 상대 가중치
-DISCRETIONARY_MENU: tuple[tuple[str, float, tuple[int, int]], ...] = (
-    (EXPENSE_SNACK, 0.32, (20, 90)),
-    (EXPENSE_STATIONERY, 0.20, (30, 120)),
-    (EXPENSE_BOARDGAME, 0.16, (20, 70)),
-    (EXPENSE_BOOK, 0.14, (10, 40)),
-    (EXPENSE_GACHA, 0.12, (20, 100)),
-    (EXPENSE_DONATION, 0.06, (10, 50)),
+# 재량 지출 후보: (항목, 선택 가중치, 1회 지출 상한 - 월급 대비 비율).
+# 금액을 절대값으로 두면 월급 수준이 다른 학생 사이에서 의미가 달라지므로 비율로 잡는다.
+DISCRETIONARY_MENU: tuple[tuple[str, float, float], ...] = (
+    (EXPENSE_SNACK, 0.32, 0.12),
+    (EXPENSE_STATIONERY, 0.20, 0.16),
+    (EXPENSE_BOARDGAME, 0.16, 0.10),
+    (EXPENSE_BOOK, 0.14, 0.06),
+    (EXPENSE_GACHA, 0.12, 0.13),
+    (EXPENSE_DONATION, 0.06, 0.07),
 )
 
-# --- 학급 직업과 주급 -------------------------------------------------------
+# --- 학급 직업과 월급 -------------------------------------------------------
+# 급여는 한 달에 한 번 지급한다. 아래 금액은 월급 기준이다.
 JOBS: tuple[tuple[str, int], ...] = (
-    ("학급 은행원", 900),
-    ("우체부", 620),
-    ("도서 관리자", 640),
-    ("환경 지킴이", 560),
-    ("급식 도우미", 580),
-    ("학급 기자", 700),
-    ("서기", 720),
-    ("시간 관리자", 540),
-    ("정리 반장", 600),
-    ("알림이", 520),
-    ("칠판 관리자", 500),
-    ("재활용 반장", 560),
-    ("컴퓨터 관리자", 760),
-    ("우유 당번", 480),
-    ("학급 경찰", 660),
+    ("학급 은행원", 3600),
+    ("우체부", 2500),
+    ("도서 관리자", 2600),
+    ("환경 지킴이", 2200),
+    ("급식 도우미", 2300),
+    ("학급 기자", 2800),
+    ("서기", 2900),
+    ("시간 관리자", 2200),
+    ("정리 반장", 2400),
+    ("알림이", 2100),
+    ("칠판 관리자", 2000),
+    ("재활용 반장", 2250),
+    ("컴퓨터 관리자", 3000),
+    ("우유 당번", 1900),
+    ("학급 경찰", 2650),
 )
 
 # --- 세금 항목 --------------------------------------------------------------
