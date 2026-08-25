@@ -9,12 +9,12 @@ from __future__ import annotations
 # --- 계좌 종류 --------------------------------------------------------------
 ACCOUNT_CHECKING = "CHECKING"   # 입출금 통장
 ACCOUNT_SAVINGS = "SAVINGS"     # 적금 통장
-ACCOUNT_LOAN = "LOAN"           # 대출 계좌(잔액이 음수 = 남은 빗)
+ACCOUNT_LOAN = "LOAN"           # 대출 계좌(잔액이 음수 = 남은 빚)
 
 # --- 수입 -------------------------------------------------------------------
 INCOME_SALARY = "월급"
 INCOME_BONUS = "칭찬 보너스"
-INCOME_MARKET = "알뜨장터 판매"
+INCOME_MARKET = "알뜰장터 판매"
 INCOME_INTEREST = "예금 이자"
 INCOME_OPENING = "계좌 개설 축하금"
 INCOME_LOAN_DISBURSE = "대출금 입금"
