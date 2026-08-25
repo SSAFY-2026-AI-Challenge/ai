@@ -14,7 +14,7 @@ fin_edu 스키마의 member / account / transaction / payroll 을 채운다.
 
 주 단위로 급여 지급 → 세금 납부 → 적금 납입 → 대출 상환 → 재량 소비 순서로
 현금 흐름을 굴리며, 잔액이 부족해 의무 지출을 못 하면 연체료가 붙는다.
-이 연체료 거래가 곳 신용평가의 정답(bad) 라벨이 된다.
+이 연체료 거래가 곧 신용평가의 정답(bad) 라벨이 된다.
 """
 
 from __future__ import annotations
@@ -342,7 +342,7 @@ def _simulate_student_cashflow(
         )
         budget = max(0, balance) * spend_ratio
         n_spend = int(rng.poisson(1.6 + 2.6 * impulse)) + 1
-        # 충동성이 높은 학생은 간식·뽑기·보드게임 쪽으로 소비가 쓸린다.
+        # 충동성이 높은 학생은 간식·뽑기·보드게임 쪽으로 소비가 쏠린다.
         weights = np.array(
             [
                 w_ * (1 + 2.2 * impulse if desc in D.DISCRETIONARY_DESCRIPTIONS else 1 - 0.5 * impulse)
