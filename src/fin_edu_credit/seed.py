@@ -29,7 +29,7 @@ import pandas as pd
 from . import domain as D
 from .config import SimulationConfig
 
-# --- 시뮬레이션 튀닝 상수 ----------------------------------------------------
+# --- 시뮬레이션 튜닝 상수 ----------------------------------------------------
 OPENING_GIFT_MULTIPLIER = 1.0     # 계좌 개설 축하금 = 주급 * 배수
 SAVINGS_JOIN_BASE = 0.30          # 적금 가입 확률 기본값
 SAVINGS_JOIN_THETA = 0.45         # 성실할수록 적금 가입
@@ -611,7 +611,7 @@ def load_into_db(conn, economy: SimulatedEconomy, *, reset: bool = True) -> dict
 
 
 def bad_rate_preview(economy: SimulatedEconomy, obs_weeks: int = 8, perf_weeks: int = 4) -> float:
-    """성과 윈도우 기준 부실률을 빠르게 확인한다(튀닝용)."""
+    """성과 윈도우 기준 부실률을 빠르게 확인한다(튜닝용)."""
     txn = economy.transactions
     students = set(economy.members.loc[economy.members["role"] == "STUDENT", "login_id"])
     start = txn["occured_at"].min().normalize() + pd.Timedelta(weeks=obs_weeks)
