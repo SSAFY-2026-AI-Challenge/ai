@@ -6,8 +6,8 @@
 2. 2주 간격 기준일마다 (관측 8주 피처, 성과 4주 연체 여부) 쌍을 만든다.
 3. **학생 단위**로 학습/검증을 나눈다. 같은 학생이 여러 기준일에 등장하므로
    행 단위로 자르면 검증 성능이 부풀려진다.
-4. 피처를 도메인 방향에 맞춰 단조 WoE 로 구간화하고, IV 로 걸러난 뒤,
-   상관이 높은 쌍을 정리하고, 계수 부호를 0 이하로 제약해 적합한다.
+4. 피처를 도메인 방향에 맞춰 단조 WoE 로 구간화하고, IV 로 걸러낸 뒤,
+   상관이 높은 짝을 정리하고, 계수 부호를 0 이하로 제약해 적합한다.
 5. 로지스틱 회귀 계수를 '구간별 점수표'로 환산해 저장한다.
    그래디언트 부스팅은 채택하지 않고, 스코어카드가 얼마나 손해인지 보기 위한
    비교 기준으로만 학습한다.
@@ -151,7 +151,7 @@ def evaluate(y_true: np.ndarray, y_prob: np.ndarray, cfg: ModelConfig) -> dict[s
 # --- 피처 선택 ----------------------------------------------------------------
 
 def _drop_correlated(woe_df: pd.DataFrame, iv: dict[str, float], threshold: float) -> list[str]:
-    """WoE 상관이 높은 쌍에서 정보값이 낮은 쪽을 버린다."""
+    """WoE 상관이 높은 짝에서 정보값이 낮은 쪽을 버린다."""
     kept = sorted(woe_df.columns, key=lambda c: iv[c], reverse=True)
     corr = woe_df.corr().abs()
     selected: list[str] = []
