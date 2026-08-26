@@ -30,7 +30,7 @@ def build_summary(
     if result.score >= 850:
         return (
             f"{name} 친구의 신용점수는 {result.score}점, 등급은 {result.grade}입니다. "
-            "약속을 잘 지키고 돈을 알뜨하게 다루고 있어요."
+            "약속을 잘 지키고 돈을 알뜰하게 다루고 있어요."
         )
     if hurts:
         focus = hurts[0]
@@ -40,7 +40,7 @@ def build_summary(
         )
     return (
         f"{name} 친구의 신용점수는 {result.score}점, 등급은 {result.grade}입니다. "
-            "지금처럼 꾸준히 지키면 됩니다."
+        "지금처럼 꾸준히 지키면 됩니다."
     )
 
 
