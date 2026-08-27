@@ -40,8 +40,16 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "verify-secrets":
         from credit_ai.gcp_secrets import probe_secret_manager
 
-        report = probe_secret_manager()
+        try:
+            report = probe_secret_manager()
+        except Exception as exc:
+            report = {
+                "ok": False,
+                "error": f"{exc.__class__.__name__}: {exc}",
+            }
         print(json.dumps(report, ensure_ascii=False, indent=2))
+        if not report.get("ok"):
+            sys.exit(1)
         return
 
     settings = get_settings()

@@ -130,12 +130,46 @@ def probe_secret_manager(
 ) -> dict[str, object]:
     """시크릿 값은 반환하지 않고, 읽을 수 있는지만 확인합니다."""
     resolved = resolve_gcp_project_id(project_id)
-    secrets = fetch_db_secrets(resolved, client=client)
-    return {
-        "ok": True,
+    report: dict[str, object] = {
+        "ok": False,
         "project_id": resolved,
-        "secrets": {
-            key: {"readable": True, "chars": len(secrets[key])}
-            for key in DB_SECRET_IDS
-        },
+        "secrets": {},
     }
+    if not resolved:
+        report["error"] = (
+            "GCP 프로젝트 ID를 찾지 못했습니다. GCP_PROJECT_ID 를 설정하거나 "
+            "GCE 서비스 계정으로 실행하세요."
+        )
+        report["secrets"] = {
+            key: {"readable": False, "chars": 0} for key in DB_SECRET_IDS
+        }
+        return report
+
+    if client is None:
+        from google.cloud import secretmanager
+
+        client = secretmanager.SecretManagerServiceClient()
+
+    secrets: dict[str, dict[str, object]] = {}
+    ok = True
+    for secret_id in DB_SECRET_IDS:
+        name = f"projects/{resolved}/secrets/{secret_id}/versions/latest"
+        try:
+            text = _payload_text(client.access_secret_version(request={"name": name}))
+        except Exception as exc:
+            secrets[secret_id] = {
+                "readable": False,
+                "chars": 0,
+                "error": exc.__class__.__name__,
+            }
+            ok = False
+            continue
+        if not text:
+            secrets[secret_id] = {"readable": False, "chars": 0, "error": "empty"}
+            ok = False
+            continue
+        secrets[secret_id] = {"readable": True, "chars": len(text)}
+
+    report["ok"] = ok
+    report["secrets"] = secrets
+    return report
