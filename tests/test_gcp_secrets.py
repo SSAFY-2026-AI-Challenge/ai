@@ -129,3 +129,15 @@ def test_probe_secret_manager_omits_values() -> None:
     dumped = str(report)
     assert "s3cret" not in dumped
     assert "10.0.0.8" not in dumped
+
+
+def test_probe_secret_manager_reports_unread_secrets() -> None:
+    client = FakeClient({"DB_HOST": "10.0.0.8", "DB_PORT": "3306"})
+    report = probe_secret_manager("ssafy-2026-ai", client=client)
+    assert report["ok"] is False
+    assert report["secrets"]["DB_HOST"]["readable"] is True
+    assert report["secrets"]["DB_PASSWORD"]["readable"] is False
+    assert report["secrets"]["DB_PASSWORD"]["error"] == "KeyError"
+    dumped = str(report)
+    assert "s3cret" not in dumped
+    assert "10.0.0.8" not in dumped

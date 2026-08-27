@@ -47,8 +47,11 @@ uv run pytest
 
 | 워크플로 | 실행 | 하는 일 |
 | --- | --- | --- |
-| **Deploy to GCP** | `main` push, 또는 Actions에서 수동 | 코드 동기화, 의존성, 모델 없으면 학습, 서비스 기동 |
+| **Deploy to GCP** | `main` push, 또는 Actions에서 수동 | Secret Manager 확인, 코드 동기화, 모델 없으면 학습, 서비스 기동 |
+| **Verify Secret Manager** | Actions에서 수동 | `DB_*` 시크릿을 읽을 수 있는지만 확인 (값은 로그에 안 남김) |
 | **Train model** | Actions에서 수동 | 모델을 다시 학습하고 서비스를 재시작 |
+
+배포 VM 서비스 계정에는 `roles/secretmanager.secretAccessor` 가 있어야 하고, 인스턴스 API 범위는 Cloud API 전체 허용(`cloud-platform`)이어야 합니다.
 
 GitHub **Actions** 탭에서 워크플로를 고른 뒤 Run workflow 하면 됩니다.
 GCE 방화벽은 **TCP 48765**만 외부에 여세요. **3306은 열지 마세요.**
@@ -56,6 +59,7 @@ GCE 방화벽은 **TCP 48765**만 외부에 여세요. **3306은 열지 마세�
 VM에서 직접:
 
 ```bash
+bash deploy/gcp.sh verify-secrets
 bash deploy/gcp.sh deploy
 bash deploy/gcp.sh train
 ```
