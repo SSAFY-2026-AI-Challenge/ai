@@ -12,6 +12,7 @@
 | 지출 추이 | `spending_trend` | 거래 현금흐름·소비. 0=검소, 1=과소비 |
 | 숙제 완료율 | `homework_rate` | `member.cs_homework` |
 | 출결률 | `attendance_rate` | `member.cs_attendance` |
+|도서 연체율|?|`member.cs_overdue`|
 
 점수는 **300~1000**이고, 등급은 최우수(A+) · 우수(A) · 양호(B) · 보통(C) · 노력(D)입니다.
 MLP가 출석×숙제 시너지, 과소비 감점 같은 비선형 관계를 학습합니다.
