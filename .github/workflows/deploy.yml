@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, Linux]
+    runs-on: self-hosted
     timeout-minutes: 45
     defaults:
       run:
