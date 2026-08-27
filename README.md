@@ -50,7 +50,7 @@ GCE에서 `.env` 에 `APP_MODE=db` 만 두고 올리면, 앱이 Secret Manager �
 | `DB_HOST` | MySQL 호스트 |
 | `DB_PORT` | 포트 |
 | `DB_USER` | 사용자 |
-| `DB_PASSWORD` | 비뀌번호 |
+| `DB_PASSWORD` | 비밀번호 |
 | `DB_NAME` | 데이터베이스 |
 
 VM 서비스 계정에 **Secret Manager 보안 비밀 접근자** (`roles/secretmanager.secretAccessor`) 가 있어야 합니다.

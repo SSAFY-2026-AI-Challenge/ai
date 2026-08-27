@@ -93,7 +93,7 @@ def overlay_db_settings(
     *,
     fetch: Callable[[str], dict[str, str]] | None = None,
 ) -> Settings:
-    """APP_MODE=db 이면 Secret Manager 값을 Settings 에 덮어쓰니다."""
+    """APP_MODE=db 이면 Secret Manager 값을 Settings 에 덮어씁니다."""
     source = settings.secrets_source
     if source == "env":
         return settings.model_copy(update={"db_secrets_from": "env"})
