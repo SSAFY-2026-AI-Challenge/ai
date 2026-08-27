@@ -41,33 +41,6 @@ uv run credit-ai score --spending 0.25 --homework 0.95 --attendance 0.98
 uv run pytest
 ```
 
-## 배포 시 DB 연결
-
-GCE에서 `.env` 에 `APP_MODE=db` 만 두고 올리면, 앱이 Secret Manager 에서 아래 시크릿을 읽습니다.
-
-| 시크릿 이름 | 용도 |
-| --- | --- |
-| `DB_HOST` | MySQL 호스트 |
-| `DB_PORT` | 포트 |
-| `DB_USER` | 사용자 |
-| `DB_PASSWORD` | 비밀번호 |
-| `DB_NAME` | 데이터베이스 |
-
-VM 서비스 계정에 **Secret Manager 보안 비밀 접근자** (`roles/secretmanager.secretAccessor`) 가 있어야 합니다.
-`GCP_PROJECT_ID` 를 비우면 GCE/ADC 가 프로젝트 ID를 찾습니다. 로컬에서만 DB를 붙일 때는 같은 키를 `.env` 에 넣거나 `SECRETS_SOURCE=env` 로 두면 됩니다.
-
-연결되면 `member` / `account` / `transaction` / `payroll` 에서 피처를 만들고,
-결과 요약·추천은 `ai_report`, `ai_recommendation` 에 저장합니다.
-`ai_report.member_id` 가 고유하므로 같은 학생은 리포트가 갱신됩니다.
-
-확인:
-
-```bash
-curl http://127.0.0.1:48765/v1/status
-```
-
-`secrets_source` 가 `gcp` 이고 `using_database` 가 `true` 이면 Secret Manager 로 붙은 상태입니다.
-
 ## GCP 배포 (self-hosted runner)
 
 GitHub Actions가 GCE 러너에서 앱을 설치하고, 모델이 없으면 학습한 뒤 **48765** 포트로 올립니다.
