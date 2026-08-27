@@ -122,3 +122,20 @@ def overlay_db_settings(
         "db_secrets_from": "gcp",
     }
     return settings.model_copy(update=update)
+
+
+def probe_secret_manager(
+    project_id: str = "",
+    client: SecretVersionClient | None = None,
+) -> dict[str, object]:
+    """시크릿 값은 반환하지 않고, 읽을 수 있는지만 확인합니다."""
+    resolved = resolve_gcp_project_id(project_id)
+    secrets = fetch_db_secrets(resolved, client=client)
+    return {
+        "ok": True,
+        "project_id": resolved,
+        "secrets": {
+            key: {"readable": True, "chars": len(secrets[key])}
+            for key in DB_SECRET_IDS
+        },
+    }

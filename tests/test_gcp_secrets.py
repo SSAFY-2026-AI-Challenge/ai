@@ -9,6 +9,7 @@ from credit_ai.gcp_secrets import (
     GcpSecretError,
     fetch_db_secrets,
     overlay_db_settings,
+    probe_secret_manager,
 )
 
 
@@ -116,3 +117,15 @@ def test_get_settings_offline_default(monkeypatch) -> None:
     assert settings.app_mode == "offline"
     assert settings.db_secrets_from == "env"
     get_settings.cache_clear()
+
+
+def test_probe_secret_manager_omits_values() -> None:
+    client = FakeClient(SAMPLE)
+    report = probe_secret_manager("ssafy-2026-ai", client=client)
+    assert report["ok"] is True
+    assert report["project_id"] == "ssafy-2026-ai"
+    assert report["secrets"]["DB_PASSWORD"]["readable"] is True
+    assert report["secrets"]["DB_PASSWORD"]["chars"] == 6
+    dumped = str(report)
+    assert "s3cret" not in dumped
+    assert "10.0.0.8" not in dumped
