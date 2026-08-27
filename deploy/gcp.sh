@@ -42,12 +42,21 @@ sync_code() {
 }
 
 ensure_env() {
-  if [[ -f "${APP_DIR}/.env" ]]; then
-    log "기존 .env 를 유지합니다."
-    return
+  if [[ ! -f "${APP_DIR}/.env" ]]; then
+    log "배포용 .env 생성 (APP_MODE=db)"
+    sed 's/^APP_MODE=offline$/APP_MODE=db/' "${SOURCE_DIR}/.env.example" > "${APP_DIR}/.env"
   fi
-  log "배포용 .env 생성 (APP_MODE=db)"
-  sed 's/^APP_MODE=offline$/APP_MODE=db/' "${SOURCE_DIR}/.env.example" > "${APP_DIR}/.env"
+  if grep -q '^APP_MODE=' "${APP_DIR}/.env"; then
+    sed -i 's/^APP_MODE=.*/APP_MODE=db/' "${APP_DIR}/.env"
+  else
+    printf '\nAPP_MODE=db\n' >> "${APP_DIR}/.env"
+  fi
+  if grep -q '^SECRETS_SOURCE=' "${APP_DIR}/.env"; then
+    sed -i 's/^SECRETS_SOURCE=.*/SECRETS_SOURCE=gcp/' "${APP_DIR}/.env"
+  else
+    printf 'SECRETS_SOURCE=gcp\n' >> "${APP_DIR}/.env"
+  fi
+  log "APP_MODE=db, SECRETS_SOURCE=gcp 로 Secret Manager 를 사용합니다."
 }
 
 sync_deps() {
@@ -118,12 +127,21 @@ start_serve() {
 }
 
 wait_healthy() {
-  local i
+  local i body
   for i in {1..40}; do
     if curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
       log "헬스체크 성공"
-      curl -sS "http://127.0.0.1:${PORT}/v1/status" || true
-      printf '\n'
+      body="$(curl -fsS "http://127.0.0.1:${PORT}/v1/status")"
+      printf '%s\n' "${body}"
+      python3 - "${body}" <<'PY'
+import json, sys
+status = json.loads(sys.argv[1])
+if status.get("secrets_source") != "gcp":
+    raise SystemExit(f"Secret Manager 미사용: {status}")
+if not status.get("using_database"):
+    raise SystemExit(f"DB 미연결: {status}")
+print("[credit-ai] Secret Manager 확인 완료")
+PY
       return 0
     fi
     sleep 2
@@ -134,12 +152,27 @@ wait_healthy() {
   return 1
 }
 
+cmd_verify_secrets() {
+  ensure_uv
+  cd "${APP_DIR}"
+  mkdir -p "${APP_DIR}/logs"
+  local out="${APP_DIR}/logs/secret-manager-probe.json"
+  log "Secret Manager 접근 확인"
+  set +e
+  uv run credit-ai verify-secrets > "${out}"
+  local rc=$?
+  set -e
+  cat "${out}"
+  return "${rc}"
+}
+
 cmd_deploy() {
   local force_train="${FORCE_TRAIN:-false}"
   log "deploy host=$(hostname) user=$(whoami) app_dir=${APP_DIR}"
   sync_code
   ensure_env
   sync_deps
+  cmd_verify_secrets
   if [[ "${force_train}" == "true" ]] || model_missing; then
     run_train
   else
@@ -153,6 +186,7 @@ cmd_train() {
   sync_code
   ensure_env
   sync_deps
+  cmd_verify_secrets
   run_train "$@"
   start_serve
 }
@@ -164,9 +198,10 @@ cmd_restart() {
 usage() {
   cat <<'EOF'
 사용법:
-  bash deploy/gcp.sh deploy     # 코드 배포, 모델 없으면 학습, 서비스 기동
-  bash deploy/gcp.sh train ...  # 학습 후 서비스 재시작 (credit-ai train 인자 전달)
-  bash deploy/gcp.sh restart    # 서비스만 재시작
+  bash deploy/gcp.sh deploy          # 코드 배포, Secret Manager 확인, 모델 없으면 학습, 서비스 기동
+  bash deploy/gcp.sh train ...       # 학습 후 서비스 재시작 (credit-ai train 인자 전달)
+  bash deploy/gcp.sh verify-secrets  # Secret Manager DB_* 시크릿 접근 확인
+  bash deploy/gcp.sh restart         # 서비스만 재시작
 EOF
 }
 
@@ -178,6 +213,12 @@ main() {
   case "${cmd}" in
     deploy) cmd_deploy ;;
     train) cmd_train "$@" ;;
+    verify-secrets)
+      sync_code
+      ensure_env
+      sync_deps
+      cmd_verify_secrets
+      ;;
     restart) cmd_restart ;;
     -h|--help|help) usage ;;
     *)
