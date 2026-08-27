@@ -16,6 +16,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   deploy:
@@ -36,6 +37,19 @@ jobs:
 
       - name: Check deploy script
         run: bash -n deploy/gcp.sh
+
+      - name: Probe Secret Manager
+        run: bash deploy/gcp.sh verify-secrets
+
+      - name: Report Secret Manager result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: "4"
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          export PROBE_FILE="${HOME}/credit-ai/logs/secret-manager-probe.json"
+          python3 deploy/report_secret_probe.py
 
       - name: Deploy app
         env:
