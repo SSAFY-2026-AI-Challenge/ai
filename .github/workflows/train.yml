@@ -1,0 +1,51 @@
+name: Train model
+
+on:
+  workflow_dispatch:
+    inputs:
+      samples:
+        description: 합성 학습 샘플 수
+        required: false
+        default: "8000"
+      epochs:
+        description: 학습 epoch
+        required: false
+        default: "45"
+      batch_size:
+        description: 배치 크기
+        required: false
+        default: "128"
+
+concurrency:
+  group: credit-ai-gcp
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: [self-hosted, Linux]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Show runner
+        run: |
+          echo "runner=${RUNNER_NAME:-unknown}"
+          echo "labels=${RUNNER_LABELS:-unknown}"
+          echo "user=$(whoami) home=$HOME host=$(hostname)"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check deploy script
+        run: bash -n deploy/gcp.sh
+
+      - name: Train and reload
+        run: >
+          bash deploy/gcp.sh train
+          --samples ${{ inputs.samples }}
+          --epochs ${{ inputs.epochs }}
+          --batch-size ${{ inputs.batch_size }}

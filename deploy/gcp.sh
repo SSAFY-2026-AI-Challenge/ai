@@ -136,6 +136,7 @@ wait_healthy() {
 
 cmd_deploy() {
   local force_train="${FORCE_TRAIN:-false}"
+  log "deploy host=$(hostname) user=$(whoami) app_dir=${APP_DIR}"
   sync_code
   ensure_env
   sync_deps
@@ -148,6 +149,7 @@ cmd_deploy() {
 }
 
 cmd_train() {
+  log "train host=$(hostname) user=$(whoami) app_dir=${APP_DIR}"
   sync_code
   ensure_env
   sync_deps

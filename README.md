@@ -43,17 +43,17 @@ uv run pytest
 
 ## GCP 배포 (self-hosted runner)
 
-GitHub Actions가 GCE 러너에서 앱을 설치하고, 모델이 없으면 학습한 뒤 **48765** 포트로 올립니다.
-배포 위치는 `$HOME/credit-ai` 입니다.
+`main` 푸시 또는 Actions 수동 실행 시 GCE **self-hosted runner**가 앱을 `$HOME/credit-ai`에 설치합니다. 모델 파일이 없으면 학습한 뒤 **48765** 포트로 올립니다.
 
-워크플로 파일은 `deploy/github-workflows/` 에 있습니다. GitHub 웹에서 아래 두 파일을 `.github/workflows/` 로 복사해 커밋하면 Actions 탭에서 실행됩니다.
+| 워크플로 | 실행 | 하는 일 |
+| --- | --- | --- |
+| **Deploy to GCP** | `main` push, 또는 Actions에서 수동 | 코드 동기화, 의존성, 모델 없으면 학습, 서비스 기동 |
+| **Train model** | Actions에서 수동 | 모델을 다시 학습하고 서비스를 재시작 |
 
-- `deploy.yml` — `main` push 또는 수동 배포. 모델이 없으면 학습합니다.
-- `train.yml` — Actions에서 수동으로 재학습합니다.
+GitHub **Actions** 탭에서 워크플로를 고른 뒤 Run workflow 하면 됩니다.
+GCE 방화벽은 **TCP 48765**만 외부에 여세요. **3306은 열지 마세요.**
 
-GCE 방화벽에서 **TCP 48765** 만 외부에 열면 됩니다. GitHub runner와 Secret Manager, MySQL 은 나가는 연결이라 인바운드 포트가 필요 없습니다. **3306 은 열지 마세요.**
-
-VM에서 바로 배포:
+VM에서 직접:
 
 ```bash
 bash deploy/gcp.sh deploy
