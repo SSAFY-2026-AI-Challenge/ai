@@ -52,6 +52,7 @@ uv run pytest
 | **Train model** | Actions에서 수동 | 모델을 다시 학습하고 서비스를 재시작 |
 
 배포 VM 서비스 계정에는 `roles/secretmanager.secretAccessor` 가 있어야 하고, 인스턴스 API 범위는 Cloud API 전체 허용(`cloud-platform`)이어야 합니다.
+GitHub Actions 잡이 끝나도 앱이 살아 있으려면 러너 계정에 passwordless sudo 또는 `loginctl enable-linger` 가 있어야 합니다.
 
 GitHub **Actions** 탭에서 워크플로를 고른 뒤 Run workflow 하면 됩니다.
 GCE 방화벽은 **TCP 48765**만 외부에 여세요. **3306은 열지 마세요.**

@@ -81,15 +81,16 @@ run_train() {
 
 stop_serve() {
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  sudo -n systemctl stop credit-ai >/dev/null 2>&1 || true
   systemctl --user stop credit-ai >/dev/null 2>&1 || true
   if [[ -f "${APP_DIR}/credit-ai.pid" ]]; then
     local pid
     pid="$(cat "${APP_DIR}/credit-ai.pid" || true)"
     if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
       log "기존 프로세스 종료 (pid ${pid})"
-      kill "${pid}" 2>/dev/null || true
+      kill "$pid" 2>/dev/null || true
       sleep 1
-      kill -9 "${pid}" 2>/dev/null || true
+      kill -9 "$pid" 2>/dev/null || true
     fi
     rm -f "${APP_DIR}/credit-ai.pid"
   fi
@@ -98,16 +99,63 @@ stop_serve() {
   fi
 }
 
-start_systemd() {
+write_unit() {
+  local dest="$1" user_line="${2:-}" rendered
+  rendered="$(mktemp)"
+  sed "s|__APP_DIR__|${APP_DIR}|g" "${APP_DIR}/deploy/credit-ai.service" > "$rendered"
+  if [[ -n "$user_line" ]]; then
+    awk -v user="$user_line" '
+      /^\[Service\]$/ { print; print "User=" user; next }
+      /^WantedBy=default.target$/ { print "WantedBy=multi-user.target"; next }
+      { print }
+    ' "$rendered" > "$dest"
+    rm -f "$rendered"
+  else
+    mv "$rendered" "$dest"
+  fi
+}
+
+start_systemd_system() {
+  sudo -n true >/dev/null 2>&1 || return 1
+  local tmp dest="/etc/systemd/system/credit-ai.service"
+  tmp="$(mktemp)"
+  write_unit "$tmp" "${USER}"
+  sudo -n cp "$tmp" "$dest"
+  rm -f "$tmp"
+  sudo -n systemctl daemon-reload >/dev/null 2>&1 || return 1
+  sudo -n systemctl enable --now credit-ai >/dev/null 2>&1 || return 1
+  sudo -n systemctl restart credit-ai >/dev/null 2>&1 || return 1
+  log "systemd system 서비스로 기동"
+  wait_healthy
+}
+
+start_systemd_user() {
   local uid dest
   uid="$(id -u)"
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${uid}}"
+  if command -v loginctl >/dev/null 2>&1 && [[ -n "${USER:-}" ]]; then
+    loginctl enable-linger "$USER" >/dev/null 2>&1 \
+      || sudo -n loginctl enable-linger "$USER" >/dev/null 2>&1 \
+      || true
+  fi
   mkdir -p "${HOME}/.config/systemd/user"
   dest="${HOME}/.config/systemd/user/credit-ai.service"
-  sed "s|__APP_DIR__|${APP_DIR}|g" "${APP_DIR}/deploy/credit-ai.service" > "${dest}"
+  write_unit "$dest"
   systemctl --user daemon-reload >/dev/null 2>&1 || return 1
   systemctl --user enable --now credit-ai >/dev/null 2>&1 || return 1
-  log "systemd user 서비스로 기동"
+  systemctl --user restart credit-ai >/dev/null 2>&1 || return 1
+  log "systemd user 서비스로 기동 (linger)"
+  wait_healthy
+}
+
+start_detached() {
+  log "GitHub Actions 프로세스 트리 밖에서 기동 (0.0.0.0:${PORT})"
+  mkdir -p "${APP_DIR}/logs"
+  # setsid so the runner cannot reap the serve process when the job ends.
+  setsid --fork bash -c "cd '${APP_DIR}' && exec uv run credit-ai serve --host 0.0.0.0 --port '${PORT}' >> '${APP_DIR}/logs/serve.log' 2>&1" </dev/null || {
+    ( cd "${APP_DIR}" && nohup uv run credit-ai serve --host 0.0.0.0 --port "${PORT}" \
+        >> "${APP_DIR}/logs/serve.log" 2>&1 & echo $! > "${APP_DIR}/credit-ai.pid" )
+  }
   wait_healthy
 }
 
@@ -116,14 +164,13 @@ start_serve() {
   cd "${APP_DIR}"
   mkdir -p "${APP_DIR}/logs"
   stop_serve
-  if start_systemd; then
+  if start_systemd_system; then
     return
   fi
-  log "서비스 기동 (0.0.0.0:${PORT})"
-  nohup uv run credit-ai serve --host 0.0.0.0 --port "${PORT}" \
-    >> "${APP_DIR}/logs/serve.log" 2>&1 &
-  echo $! > "${APP_DIR}/credit-ai.pid"
-  wait_healthy
+  if start_systemd_user; then
+    return
+  fi
+  start_detached
 }
 
 wait_healthy() {
@@ -149,6 +196,7 @@ PY
   log "헬스체크 실패. 최근 로그:"
   tail -n 80 "${APP_DIR}/logs/serve.log" || true
   journalctl --user -u credit-ai -n 80 --no-pager 2>/dev/null || true
+  journalctl -u credit-ai -n 80 --no-pager 2>/dev/null || true
   return 1
 }
 
