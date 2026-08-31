@@ -1,0 +1,14 @@
+[Unit]
+Description=교실 경제 신용평가 AI
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__APP_DIR__/.venv/bin/credit-ai serve --host 0.0.0.0 --port 48765
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

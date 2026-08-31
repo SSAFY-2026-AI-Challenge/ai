@@ -1,7 +1,7 @@
 # 교실 경제 신용평가 AI
 
 초등 교실 경제활동 시뮬레이션에서 **신용점수**를 매기는 딥러닝 서비스입니다.
-DB 접속 정보는 배포 서버의 env로 넣고, 지금은 연결 없이 학급 체험 데이터로 동작합니다.
+로컬은 학급 체험 데이터로 동작하고, 배포 서버는 GCP Secret Manager 의 DB 시크릿으로 MySQL 에 붙습니다.
 
 ## 쓰는 값
 
@@ -12,6 +12,7 @@ DB 접속 정보는 배포 서버의 env로 넣고, 지금은 연결 없이 학�
 | 지출 추이 | `spending_trend` | 거래 현금흐름·소비. 0=검소, 1=과소비 |
 | 숙제 완료율 | `homework_rate` | `member.cs_homework` |
 | 출결률 | `attendance_rate` | `member.cs_attendance` |
+|도서 연체율|?|`member.cs_overdue`|
 
 점수는 **300~1000**이고, 등급은 최우수(A+) · 우수(A) · 양호(B) · 보통(C) · 노력(D)입니다.
 MLP가 출석×숙제 시너지, 과소비 감점 같은 비선형 관계를 학습합니다.
@@ -41,22 +42,29 @@ uv run credit-ai score --spending 0.25 --homework 0.95 --attendance 0.98
 uv run pytest
 ```
 
-## 배포 시 DB 연결
+## GCP 배포 (self-hosted runner)
 
-`.env` 에 MySQL 정보를 채우고 `APP_MODE=db` 로 올립니다.
+`main` 푸시 또는 Actions 수동 실행 시 GCE **self-hosted runner**가 앱을 `$HOME/credit-ai`에 설치합니다. 모델 파일이 없으면 학습한 뒤 **48765** 포트로 올립니다.
 
+| 워크플로 | 실행 | 하는 일 |
+| --- | --- | --- |
+| **Deploy to GCP** | `main` push, 또는 Actions에서 수동 | Secret Manager 확인, 코드 동기화, 모델 없으면 학습, 서비스 기동 |
+| **Verify Secret Manager** | Actions에서 수동 | `DB_*` 시크릿을 읽을 수 있는지만 확인 (값은 로그에 안 남김) |
+| **Train model** | Actions에서 수동 | 모델을 다시 학습하고 서비스를 재시작 |
+
+배포 VM 서비스 계정에는 `roles/secretmanager.secretAccessor` 가 있어야 하고, 인스턴스 API 범위는 Cloud API 전체 허용(`cloud-platform`)이어야 합니다.
+GitHub Actions 잡이 끝나도 앱이 살아 있으려면 러너 계정에 passwordless sudo 또는 `loginctl enable-linger` 가 있어야 합니다.
+
+GitHub **Actions** 탭에서 워크플로를 고른 뒤 Run workflow 하면 됩니다.
+GCE 방화벽은 **TCP 48765**만 외부에 여세요. **3306은 열지 마세요.**
+
+VM에서 직접:
+
+```bash
+bash deploy/gcp.sh verify-secrets
+bash deploy/gcp.sh deploy
+bash deploy/gcp.sh train
 ```
-APP_MODE=db
-DB_HOST=...
-DB_PORT=3306
-DB_USER=...
-DB_PASSWORD=...
-DB_NAME=...
-```
-
-연결되면 `member` / `account` / `transaction` / `payroll` 에서 피처를 만들고,
-결과 요약·추천은 `ai_report`, `ai_recommendation` 에 저장합니다.
-`ai_report.member_id` 가 고유하므로 같은 학생은 리포트가 갱신됩니다.
 
 ## API
 

@@ -12,3 +12,6 @@ build/
 .coverage
 htmlcov/
 .DS_Store
+logs/
+*.pid
+models/*.pt

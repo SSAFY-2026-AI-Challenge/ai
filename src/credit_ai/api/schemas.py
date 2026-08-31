@@ -59,3 +59,5 @@ class StatusResponse(BaseModel):
     db_configured: bool
     using_database: bool
     model_loaded: bool
+    secrets_source: str
+    gcp_project_id: str = ""

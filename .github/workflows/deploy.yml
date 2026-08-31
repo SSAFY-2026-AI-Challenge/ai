@@ -1,0 +1,57 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      train:
+        description: 모델을 다시 학습합니다
+        type: boolean
+        default: false
+
+concurrency:
+  group: credit-ai-gcp
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Show runner
+        run: |
+          echo "runner=${RUNNER_NAME:-unknown}"
+          echo "labels=${RUNNER_LABELS:-unknown}"
+          echo "user=$(whoami) home=$HOME host=$(hostname)"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check deploy script
+        run: bash -n deploy/gcp.sh
+
+      - name: Probe Secret Manager
+        run: bash deploy/gcp.sh verify-secrets
+
+      - name: Report Secret Manager result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: "4"
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          export PROBE_FILE="${HOME}/credit-ai/logs/secret-manager-probe.json"
+          python3 deploy/report_secret_probe.py
+
+      - name: Deploy app
+        env:
+          FORCE_TRAIN: ${{ github.event.inputs.train || 'false' }}
+        run: bash deploy/gcp.sh deploy

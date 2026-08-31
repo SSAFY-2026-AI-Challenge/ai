@@ -30,7 +30,28 @@ def main(argv: list[str] | None = None) -> None:
     score_p.add_argument("--homework", type=float, required=True, help="숙제 완료율 0~1")
     score_p.add_argument("--attendance", type=float, required=True, help="출결률 0~1")
 
+    sub.add_parser(
+        "verify-secrets",
+        help="Secret Manager 의 DB_* 시크릿을 읽을 수 있는지 확인합니다",
+    )
+
     args = parser.parse_args(argv)
+
+    if args.command == "verify-secrets":
+        from credit_ai.gcp_secrets import probe_secret_manager
+
+        try:
+            report = probe_secret_manager()
+        except Exception as exc:
+            report = {
+                "ok": False,
+                "error": f"{exc.__class__.__name__}: {exc}",
+            }
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        if not report.get("ok"):
+            sys.exit(1)
+        return
+
     settings = get_settings()
 
     if args.command == "train":

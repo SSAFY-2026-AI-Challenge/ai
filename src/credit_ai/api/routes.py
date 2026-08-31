@@ -22,6 +22,8 @@ def status(request: Request) -> StatusResponse:
         db_configured=service.settings.db_configured,
         using_database=service.settings.use_database,
         model_loaded=service.scorer is not None,
+        secrets_source=service.settings.db_secrets_from,
+        gcp_project_id=service.settings.gcp_project_id,
     )
 
 

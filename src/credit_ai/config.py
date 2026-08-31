@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     db_name: str = ""
     db_charset: str = "utf8mb4"
 
+    gcp_project_id: str = ""
+    secrets_source: Literal["auto", "gcp", "env"] = "auto"
+    db_secrets_from: Literal["env", "gcp"] = "env"
+
     model_dir: Path = Field(default=Path("models"))
 
     @property
@@ -59,8 +63,9 @@ class Settings(BaseSettings):
     def sqlalchemy_url(self) -> str:
         if not self.db_configured:
             raise RuntimeError(
-                "DB 접속 정보가 없습니다. 배포 서버의 env에 "
-                "DB_HOST, DB_USER, DB_PASSWORD, DB_NAME 을 설정하세요."
+                "DB 접속 정보가 없습니다. Secret Manager 의 "
+                "DB_HOST, DB_USER, DB_PASSWORD, DB_NAME 시크릿 또는 "
+                "배포 서버 env 를 확인하세요."
             )
         from urllib.parse import quote_plus
 
@@ -75,4 +80,6 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    from credit_ai.gcp_secrets import overlay_db_settings
+
+    return overlay_db_settings(Settings())
