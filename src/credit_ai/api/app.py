@@ -1,22 +1,15 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from credit_ai.api.routes import router
 from credit_ai.config import Settings, get_settings
 from credit_ai.demo import DemoStore
 from credit_ai.model.scorer import CreditScorer
 from credit_ai.service import CreditService
-
-PACKAGE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 
 
 @asynccontextmanager
@@ -47,25 +40,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(router)
-    static_dir = PACKAGE_DIR / "static"
-    static_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
-
-    @app.get("/favicon.ico")
-    def favicon() -> RedirectResponse:
-        return RedirectResponse(url="/static/favicon.svg", status_code=307)
-
-    @app.get("/", response_class=HTMLResponse)
-    def dashboard(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(
-            request,
-            "index.html",
-            {"title": "교실신용"},
-        )
 
     return app
 

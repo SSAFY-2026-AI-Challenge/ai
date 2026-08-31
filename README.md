@@ -27,7 +27,7 @@ uv run credit-ai train
 uv run credit-ai serve --host 0.0.0.0 --port 48765
 ```
 
-브라우저에서 `http://127.0.0.1:48765` 로 학급 명단과 시뮬레이터를 엽니다.
+API 문서는 `http://127.0.0.1:48765/docs` 에서 확인할 수 있습니다.
 
 직접 채점:
 

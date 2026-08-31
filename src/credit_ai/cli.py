@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> None:
     train_p.add_argument("--epochs", type=int, default=45)
     train_p.add_argument("--batch-size", type=int, default=128)
 
-    serve_p = sub.add_parser("serve", help="추론 API와 교사 대시보드를 실행합니다")
+    serve_p = sub.add_parser("serve", help="추론 API를 실행합니다")
     serve_p.add_argument("--host", default=None)
     serve_p.add_argument("--port", type=int, default=None)
 

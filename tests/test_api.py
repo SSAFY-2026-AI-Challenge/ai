@@ -26,9 +26,6 @@ def test_health_and_score_flow(tmp_path, monkeypatch) -> None:
     with TestClient(app) as client:
         health = client.get("/health")
         assert health.status_code == 200
-        home = client.get("/")
-        assert home.status_code == 200
-        assert "교실신용" in home.text
 
         scored = client.post(
             "/v1/score",
