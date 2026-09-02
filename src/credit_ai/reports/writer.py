@@ -35,7 +35,6 @@ def persist_report(
     member_id: int,
     summary: str,
     features: dict[str, Any],
-    contributions: list[dict[str, Any]],
     recommendations: list[dict[str, str]],
     *,
     score: int,
@@ -51,7 +50,6 @@ def persist_report(
     report.content = content
     report.expected_effect = expected_effect
     report.features = features
-    report.contributions = contributions
     report.generated_at = datetime.now()
     session.flush()
     return report

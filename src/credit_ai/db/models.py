@@ -99,7 +99,6 @@ class AiReport(Base):
     content: Mapped[str] = mapped_column(String(512))
     expected_effect: Mapped[str] = mapped_column(String(512))
     features: Mapped[dict[str, Any]] = mapped_column(JSON)
-    contributions: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
     generated_at: Mapped[datetime] = mapped_column(DateTime)
 
     member: Mapped[Member] = relationship(back_populates="reports")

@@ -40,6 +40,12 @@ def test_health_and_score_flow(tmp_path, monkeypatch) -> None:
         assert 300 <= body["credit_score"] <= 1000
         assert body["grade"]
         assert len(body["recommendations"]) >= 1
+        assert len(body["contributions"]) >= 1
+        assert {row["feature"] for row in body["contributions"]} >= {
+            "spending_trend",
+            "homework_rate",
+            "attendance_rate",
+        }
 
         roster = client.get("/v1/class")
         assert roster.status_code == 200
