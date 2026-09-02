@@ -34,7 +34,7 @@ def test_ai_report_table_does_not_map_contributions() -> None:
 
 def test_persist_report_writes_features_and_copy() -> None:
     engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(engine, tables=[Member.__table__, AiReport.__table__])
     with Session(engine) as session:
         session.add(Member(id=1, login_id="minjun", pw="secret", name="민준"))
         session.commit()
