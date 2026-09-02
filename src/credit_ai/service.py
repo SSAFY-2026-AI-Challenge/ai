@@ -89,7 +89,13 @@ class CreditService:
             }
             with session_scope(self.settings) as session:
                 report = persist_report(
-                    session, member_id, summary, detail, recommendations
+                    session,
+                    member_id,
+                    summary,
+                    detail,
+                    recommendations,
+                    score=result.score,
+                    score_grade=result.grade,
                 )
                 report_id = report.id
         return ScoreBundle(

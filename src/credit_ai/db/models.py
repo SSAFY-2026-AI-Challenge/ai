@@ -90,6 +90,8 @@ class AiReport(Base):
     summary: Mapped[str | None] = mapped_column(Text)
     detail_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     generated_at: Mapped[date] = mapped_column(Date)
+    score: Mapped[int | None] = mapped_column(Integer)
+    score_grade: Mapped[str | None] = mapped_column(String(45))
 
     member: Mapped[Member] = relationship(back_populates="reports")
     recommendations: Mapped[list[AiRecommendation]] = relationship(

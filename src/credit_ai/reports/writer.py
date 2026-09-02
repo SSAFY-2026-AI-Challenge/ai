@@ -15,6 +15,9 @@ def persist_report(
     summary: str,
     detail: dict[str, Any],
     recommendations: list[dict[str, str]],
+    *,
+    score: int,
+    score_grade: str,
 ) -> AiReport:
     report = session.scalar(select(AiReport).where(AiReport.member_id == member_id))
     if report is None:
@@ -24,6 +27,8 @@ def persist_report(
             summary=summary,
             detail_json=detail,
             generated_at=date.today(),
+            score=score,
+            score_grade=score_grade,
         )
         session.add(report)
         session.flush()
@@ -32,6 +37,8 @@ def persist_report(
         report.summary = summary
         report.detail_json = detail
         report.generated_at = date.today()
+        report.score = score
+        report.score_grade = score_grade
         session.execute(delete(AiRecommendation).where(AiRecommendation.report_id == report.id))
 
     for item in recommendations:
