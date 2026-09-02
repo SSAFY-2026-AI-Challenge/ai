@@ -85,7 +85,6 @@ class CreditService:
                     member_id,
                     summary,
                     result.features,
-                    [asdict(row) for row in contributions],
                     recommendations,
                     score=result.score,
                 )
