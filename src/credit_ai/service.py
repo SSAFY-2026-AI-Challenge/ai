@@ -79,23 +79,15 @@ class CreditService:
         recommendations = build_recommendations(features, contributions)
         report_id = None
         if persist and member_id is not None and self.settings.use_database:
-            detail = {
-                "credit_score": result.score,
-                "grade": result.grade,
-                "grade_code": result.grade_code,
-                "features": result.features,
-                "contributions": [asdict(row) for row in contributions],
-                "model": {"name": "CreditMLP", "version": "1.0.0"},
-            }
             with session_scope(self.settings) as session:
                 report = persist_report(
                     session,
                     member_id,
                     summary,
-                    detail,
+                    result.features,
+                    [asdict(row) for row in contributions],
                     recommendations,
                     score=result.score,
-                    score_grade=result.grade,
                 )
                 report_id = report.id
         return ScoreBundle(

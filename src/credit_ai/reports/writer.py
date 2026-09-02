@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -8,10 +8,16 @@ from sqlalchemy.orm import Session
 
 from credit_ai.db.models import AiReport
 
+TEXT_LIMIT = 512
+
+
+def clip_text(value: str | None) -> str:
+    return (value or "")[:TEXT_LIMIT]
+
 
 def join_recommendation_fields(
     recommendations: list[dict[str, str]],
-) -> tuple[str | None, str | None]:
+) -> tuple[str, str]:
     contents = [item["content"] for item in recommendations if item.get("content")]
     effects = [
         item["expected_effect"]
@@ -19,8 +25,8 @@ def join_recommendation_fields(
         if item.get("expected_effect")
     ]
     return (
-        "\n".join(contents) if contents else None,
-        "\n".join(effects) if effects else None,
+        clip_text("\n".join(contents) if contents else ""),
+        clip_text("\n".join(effects) if effects else ""),
     )
 
 
@@ -28,11 +34,11 @@ def persist_report(
     session: Session,
     member_id: int,
     summary: str,
-    detail: dict[str, Any],
+    features: dict[str, Any],
+    contributions: list[dict[str, Any]],
     recommendations: list[dict[str, str]],
     *,
     score: int,
-    score_grade: str,
 ) -> AiReport:
     content, expected_effect = join_recommendation_fields(recommendations)
     report = session.scalar(select(AiReport).where(AiReport.member_id == member_id))
@@ -40,13 +46,12 @@ def persist_report(
         report = AiReport(member_id=member_id)
         session.add(report)
 
-    report.report_type = "CREDIT_SCORE"
-    report.summary = summary
+    report.credit_score = score
+    report.summary = clip_text(summary)
     report.content = content
     report.expected_effect = expected_effect
-    report.detail_json = detail
-    report.generated_at = date.today()
-    report.score = score
-    report.score_grade = score_grade
+    report.features = features
+    report.contributions = contributions
+    report.generated_at = datetime.now()
     session.flush()
     return report

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
-from sqlalchemy.dialects.mysql import TINYINT
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, UniqueConstraint
+from sqlalchemy.dialects.mysql import SMALLINT, TINYINT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -83,24 +83,26 @@ class Payroll(Base):
 
 class AiReport(Base):
     __tablename__ = "ai_report"
+    __table_args__ = (
+        UniqueConstraint("member_id", name="uk_ai_report_member"),
+        CheckConstraint(
+            "credit_score BETWEEN 300 AND 1000", name="chk_ai_report_score"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    member_id: Mapped[int] = mapped_column(ForeignKey("member.id"), unique=True)
-    report_type: Mapped[str | None] = mapped_column(String(45))
-    summary: Mapped[str | None] = mapped_column(Text)
-    content: Mapped[str | None] = mapped_column(Text)
-    expected_effect: Mapped[str | None] = mapped_column(Text)
-    detail_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    generated_at: Mapped[date] = mapped_column(Date)
-    score: Mapped[int | None] = mapped_column(Integer)
-    score_grade: Mapped[str | None] = mapped_column(String(45))
+    member_id: Mapped[int] = mapped_column(
+        ForeignKey("member.id", name="fk_ai_report_member")
+    )
+    credit_score: Mapped[int] = mapped_column(SMALLINT(unsigned=True))
+    summary: Mapped[str] = mapped_column(String(512))
+    content: Mapped[str] = mapped_column(String(512))
+    expected_effect: Mapped[str] = mapped_column(String(512))
+    features: Mapped[dict[str, Any]] = mapped_column(JSON)
+    contributions: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    generated_at: Mapped[datetime] = mapped_column(DateTime)
 
     member: Mapped[Member] = relationship(back_populates="reports")
-    recommendations: Mapped[list[AiRecommendation]] = relationship(
-        back_populates="report",
-        primaryjoin="AiReport.id == foreign(AiRecommendation.report_id)",
-        viewonly=True,
-    )
 
 
 class AiRecommendation(Base):
@@ -112,9 +114,3 @@ class AiRecommendation(Base):
     content: Mapped[str | None] = mapped_column(Text)
     expected_effect: Mapped[str | None] = mapped_column(Text)
     is_applied: Mapped[int | None] = mapped_column(TINYINT, default=0)
-
-    report: Mapped[AiReport | None] = relationship(
-        back_populates="recommendations",
-        primaryjoin="foreign(AiRecommendation.report_id) == AiReport.id",
-        viewonly=True,
-    )
