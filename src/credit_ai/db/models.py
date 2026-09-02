@@ -88,6 +88,8 @@ class AiReport(Base):
     member_id: Mapped[int] = mapped_column(ForeignKey("member.id"), unique=True)
     report_type: Mapped[str | None] = mapped_column(String(45))
     summary: Mapped[str | None] = mapped_column(Text)
+    content: Mapped[str | None] = mapped_column(Text)
+    expected_effect: Mapped[str | None] = mapped_column(Text)
     detail_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     generated_at: Mapped[date] = mapped_column(Date)
     score: Mapped[int | None] = mapped_column(Integer)
