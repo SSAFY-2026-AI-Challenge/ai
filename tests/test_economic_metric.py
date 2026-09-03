@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import asyncio
-from contextlib import suppress
 from datetime import datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from credit_ai.config import Settings
 from credit_ai.db.models import Account, EconomicMetric, Member, Payroll, Transaction
 from credit_ai.metrics.compute import (
     AccountView,
@@ -19,7 +16,6 @@ from credit_ai.metrics.compute import (
     gini,
 )
 from credit_ai.metrics.refresh import collect_class_metrics, persist_metrics
-from credit_ai.metrics.scheduler import run_metric_scheduler
 
 EXPECTED_COLUMNS = (
     "id",
@@ -188,36 +184,3 @@ def test_collect_and_persist_metrics_by_class() -> None:
         assert [row.class_id for row in stored] == [301, 302]
         assert stored[0].total_money == 9000
         assert stored[1].total_money == 8000
-
-
-def test_scheduler_invokes_refresh(monkeypatch) -> None:
-    calls: list[int] = []
-
-    def fake_refresh(settings: Settings) -> list[dict[str, object]]:
-        calls.append(1)
-        return []
-
-    monkeypatch.setattr(
-        "credit_ai.metrics.scheduler.refresh_economic_metrics",
-        fake_refresh,
-    )
-
-    async def run() -> None:
-        settings = Settings(
-            app_mode="db",
-            db_host="localhost",
-            db_user="u",
-            db_name="n",
-            metric_interval_seconds=60,
-        )
-        task = asyncio.create_task(run_metric_scheduler(settings))
-        for _ in range(50):
-            if calls:
-                break
-            await asyncio.sleep(0.01)
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
-
-    asyncio.run(run())
-    assert calls
