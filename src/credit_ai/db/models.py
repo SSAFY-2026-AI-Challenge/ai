@@ -4,7 +4,19 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.mysql import SMALLINT, TINYINT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -113,3 +125,34 @@ class AiRecommendation(Base):
     content: Mapped[str | None] = mapped_column(Text)
     expected_effect: Mapped[str | None] = mapped_column(Text)
     is_applied: Mapped[int | None] = mapped_column(TINYINT, default=0)
+
+
+class EconomicMetric(Base):
+    __tablename__ = "economic_metric"
+    __table_args__ = (
+        Index("idx_economic_metric_class_measured", "class_id", "measured_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    class_id: Mapped[int] = mapped_column(Integer, comment="학급 식별자")
+    total_money: Mapped[int] = mapped_column(Integer, comment="학급 총화폐량")
+    average_asset: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), comment="1인당 평균 자산"
+    )
+    weekly_transaction_volume: Mapped[int] = mapped_column(
+        Integer, comment="주간 거래량"
+    )
+    average_consumption: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), comment="1인당 평균 소비"
+    )
+    consumption_change_rate: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4), comment="소비 변화율"
+    )
+    transaction_change_rate: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4), comment="거래 변화율"
+    )
+    saving_rate: Mapped[Decimal] = mapped_column(Numeric(8, 4), comment="저축률")
+    wealth_gap: Mapped[Decimal] = mapped_column(Numeric(8, 4), comment="빈부격차")
+    measured_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), comment="측정 시각"
+    )

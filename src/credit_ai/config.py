@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     db_secrets_from: Literal["env", "gcp"] = "env"
 
     model_dir: Path = Field(default=Path("models"))
+    metric_interval_seconds: int = 300
 
     @property
     def project_root(self) -> Path:

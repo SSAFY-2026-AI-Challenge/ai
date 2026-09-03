@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import asyncio
+import logging
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +12,8 @@ from credit_ai.config import Settings, get_settings
 from credit_ai.demo import DemoStore
 from credit_ai.model.scorer import CreditScorer
 from credit_ai.service import CreditService
+
+logger = logging.getLogger("credit_ai.api")
 
 
 @asynccontextmanager
@@ -21,7 +25,24 @@ async def lifespan(app: FastAPI):
         store.seed()
     app.state.settings = settings
     app.state.service = CreditService(settings, scorer, store)
-    yield
+
+    metric_task: asyncio.Task[None] | None = None
+    if settings.use_database and settings.metric_interval_seconds > 0:
+        from credit_ai.metrics.scheduler import run_metric_scheduler
+
+        metric_task = asyncio.create_task(
+            run_metric_scheduler(settings),
+            name="economic-metric",
+        )
+        logger.info("economic_metric 백그라운드 갱신을 시작합니다")
+
+    try:
+        yield
+    finally:
+        if metric_task is not None:
+            metric_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await metric_task
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

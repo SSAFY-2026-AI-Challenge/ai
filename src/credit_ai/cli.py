@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
+import logging
 import sys
 
 import uvicorn
@@ -33,6 +35,22 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser(
         "verify-secrets",
         help="Secret Manager 의 DB_* 시크릿을 읽을 수 있는지 확인합니다",
+    )
+
+    metrics_p = sub.add_parser(
+        "metrics",
+        help="학급 경제지표를 계산해 economic_metric 에 스냅샷으로 저장합니다",
+    )
+    metrics_p.add_argument(
+        "--loop",
+        action="store_true",
+        help="한 번만 저장하지 않고 METRIC_INTERVAL_SECONDS 주기로 반복합니다",
+    )
+    metrics_p.add_argument(
+        "--interval",
+        type=int,
+        default=None,
+        help="반복 주기(초). 기본값은 METRIC_INTERVAL_SECONDS",
     )
 
     args = parser.parse_args(argv)
@@ -84,6 +102,26 @@ def main(argv: list[str] | None = None) -> None:
         )
         result = scorer.score(features)
         print(json.dumps(result.__dict__, ensure_ascii=False, indent=2))
+        return
+
+    if args.command == "metrics":
+        from credit_ai.metrics.refresh import refresh_economic_metrics
+        from credit_ai.metrics.scheduler import run_metric_scheduler
+
+        if args.interval is not None:
+            settings.metric_interval_seconds = args.interval
+        if args.loop:
+            logging.basicConfig(
+                level=logging.INFO,
+                format="%(asctime)s %(levelname)s %(name)s %(message)s",
+            )
+            try:
+                asyncio.run(run_metric_scheduler(settings))
+            except KeyboardInterrupt:
+                return
+            return
+        rows = refresh_economic_metrics(settings)
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
         return
 
     parser.print_help()
