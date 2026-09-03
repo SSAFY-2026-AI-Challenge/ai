@@ -82,3 +82,7 @@ bash deploy/gcp.sh train
 학습 데이터는 실제 라벨이 아직 없으므로 `training/synthetic.py` 의 교사 함수로 합성합니다.
 실데이터 라벨이 쌓이면 같은 학습 진입점만 바꿔 재학습하면 됩니다.
 산출물은 `models/credit_mlp.pt`, `models/scaler.json` 입니다.
+
+
+# AI 정책 추천
+- 경제지표 저장: `cd ~/credit-ai && uv run credit-ai metrics`
